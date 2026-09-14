@@ -23,7 +23,7 @@ module Requester #(
 
     output   reg                            o_ready,
     output   wire [DATA_WIDTH - 1 : 0]      o_rdata,
-    output   wire                           o_slvrr,
+    output   wire                           o_slverr,
     output   wire [USER_RESP_WIDTH - 1 : 0] o_buser,
     output   wire [USER_DATA_WIDTH - 1 : 0] o_ruser,
 
@@ -140,7 +140,17 @@ module Requester #(
     ///////////////////////////////////////////////////////
     ///////////////// TRANSFERRED DATA ////////////////////
     ///////////////////////////////////////////////////////
-    always @(posedge PCLK) begin
+    always @(posedge PCLK , negedge PRESETn) begin
+        if (!PRESETn) begin
+            PADDR   <= 'd0;
+            PPROT   <= 'd0;
+            PWRITE  <= 'd0;
+            PWDATA  <= 'd0;
+            PSTRB   <= 'd0;
+            PAUSER  <= 'd0;
+            PWUSER  <= 'd0;            
+            
+        end else begin
         if (o_ready && i_valid) begin
             PADDR   <= i_addr;
             PPROT   <= i_prot;
@@ -150,12 +160,13 @@ module Requester #(
             PAUSER  <= i_auser;
             PWUSER  <= i_wuser;
         end
+        end
     end
 
     assign o_rdata = PRDATA;
     assign o_buser = PBUSER;
     assign o_ruser = PRUSER;
-    assign o_slvrr = PSLVERR;
+    assign o_slverr = PSLVERR;
     assign PWAKEUP = WAKEUP_EN ? (i_valid || (Current_State == SETUP) || (Current_State == ACCESS)) : 'd0;
 
     ///////////////////////////////////////////////////////
@@ -163,7 +174,7 @@ module Requester #(
     ///////////////////////////////////////////////////////
     wire [3:0] ctrl_payload = {PWRITE, PPROT};
     wire [4:0] check_errors;
-    assign o_parity_err = |check_errors;
+    
 
     generate
     if (Check_Type) begin : g_parity_enabled
@@ -246,7 +257,9 @@ module Requester #(
             .sent_check   (PBUSERCHK),
             .Check_Enable (PSEL & PENABLE & PREADY),
             .error        (check_errors[4])
-        );                    
+        ); 
+
+        assign o_parity_err = |check_errors;                   
 
     end else begin : g_parity_disabled
         assign PADDRCHK     = {((ADDR_WIDTH + 7)/8){1'b0}};
@@ -259,6 +272,7 @@ module Requester #(
         assign PAUSERCHK    = {((USER_REQ_WIDTH + 7)/8){1'b0}};
         assign PWUSERCHK    = {((USER_DATA_WIDTH + 7)/8){1'b0}};
         assign o_parity_err = 1'b0;
+        assign check_errors = 'd0;
     end
     endgenerate
 
