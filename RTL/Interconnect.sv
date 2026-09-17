@@ -33,8 +33,11 @@ module Interconnect #(
     input  logic [NUM_of_Completers - 1 : 0] [(USER_RESP_WIDTH+7)/8-1:0] i_PBUSERCHK,
 
     ///////////////////////////////////////////////////////
-    //////////////// INTERCONNECT --> REQUESTER ////////////
+    //////////////// INTERCONNECT <--> REQUESTER ////////////
     ///////////////////////////////////////////////////////
+
+    input logic  [ADDR_WIDTH - 1 : 0]               PADDR,
+    input logic                                     PSEL,
 
     output logic [DATA_WIDTH - 1 : 0]               PRDATA,
     output logic                                    PREADY,
