@@ -1,11 +1,11 @@
 module Requester #(
     parameter int ADDR_WIDTH      = 32,
     parameter int DATA_WIDTH      = 32,
-    parameter bit WAKEUP_EN       = 1,
+    parameter bit Wakeup_Signal   = 1,
     parameter int USER_REQ_WIDTH  = 1,
     parameter int USER_DATA_WIDTH = 1,
     parameter int USER_RESP_WIDTH = 1,
-    parameter bit Check_Type      = 1
+    parameter bit Check_Type      = 0
 )
 (
     input  logic                            PCLK,
@@ -33,7 +33,7 @@ module Requester #(
     
     ///////////////////////////////////////////////////////
     //////////////// APB_REQUESTER <--> INTERCONNECT///////
-    ///////////////  APB_REQUESTER ---> COMPLETER /////////
+    ///////////////  APB_REQUESTER <--> COMPLETER /////////
     ///////////////////////////////////////////////////////       
     input  logic [DATA_WIDTH - 1 : 0]       PRDATA,  
     input  logic                            PREADY,  
@@ -122,7 +122,6 @@ module Requester #(
         endcase
     end
     
-    /////OUTPUT FSM LOGIC///////
     always_comb begin
         PSEL    = 1'b0;
         PENABLE = 1'b0;
@@ -177,18 +176,26 @@ module Requester #(
     assign o_buser  = PBUSER;
     assign o_ruser  = PRUSER;
     assign o_slverr = PSLVERR;
-    assign PWAKEUP  = WAKEUP_EN ? (i_valid || (Current_State == SETUP) || (Current_State == ACCESS)) : 1'b0;
+
+    //WAKEUP SIGNAL
+    generate
+        if (Wakeup_Signal) begin
+            assign PWAKEUP = (i_valid || (Current_State == SETUP) || (Current_State == ACCESS));
+        end else begin
+            assign PWAKEUP = '0;
+        end
+    endgenerate    
 
     ///////////////////////////////////////////////////////
     ///////////// INTERFACE PARITY PROTECTION /////////////
     ///////////////////////////////////////////////////////
-    logic [3:0] ctrl_payload;
-    assign ctrl_payload = {PWRITE, PPROT};
-
-    logic [4:0] check_errors;
 
     generate
         if (Check_Type) begin : g_parity_enabled
+
+            logic [3:0] ctrl_payload;
+            assign ctrl_payload = {PWRITE, PPROT};
+            logic [4:0] check_errors;         
 
             APB_parity_gen #(.WIDTH(ADDR_WIDTH), .GRAN(8)) u_addr_chk (
                 .payload (PADDR),
@@ -234,6 +241,7 @@ module Requester #(
                 .payload (PWUSER),
                 .chk     (PWUSERCHK)
             );
+           
 
             APB_parity_check #(.WIDTH(1), .GRAN(1)) u_pready_chk (
                 .payload      (PREADY),
@@ -283,7 +291,6 @@ module Requester #(
             assign PAUSERCHK    = '0;
             assign PWUSERCHK    = '0;
             assign o_parity_err = 1'b0;
-            assign check_errors = '0;
         end
     endgenerate
 
